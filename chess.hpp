@@ -1,109 +1,136 @@
+
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-#include "chess_moves.hpp"
 
+#include "chess_moves.hpp"
+#include "settings.hpp"
 
 class Chess{
     private:
     sf::Music caputreSound, moveSound;
     sf::Texture img[13];
     sf::Sprite sprite[32];
-    int pieceW = 600/8;
+    int boardSize = SCREEN_HEIGHT;
+    int pieceW = boardSize/8; // if change size
     std::vector<int> v = {};
+    sf::Vector2i offset = {(int)(SCREEN_WIDTH-boardSize)/2,0};
     char currentColor = 'K';
+    
     std::string board = "rnbqkbnrpppppppp--------------------------------PPPPPPPPRNBQKBNR";
     std::string board_copy = board;
     int active = -1;
-    sf::RectangleShape canMoveSquare = sf::RectangleShape(sf::Vector2f(pieceW,pieceW));
+    sf::CircleShape canMoveSquare = sf::CircleShape(20);
     std::vector<int> allPiecesMoves[64];
     public:
     Chess(){
-        if(!img[0].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\board.png") or
-        !img[1].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\wk.png") or
-        !img[2].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\wq.png") or
-        !img[3].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\wr.png") or
-        !img[4].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\wbi.png") or
-        !img[5].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\wkn.png") or
-        !img[6].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\wp.png") or
-        !img[7].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\bk.png") or
-        !img[8].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\bq.png") or
-        !img[9].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\br.png") or
-        !img[10].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\bbi.png") or
-        !img[11].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\bkn.png") or
-        !img[12].loadFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\bp.png")){
+        std::string imgLoc = "..\\img";
+        if(!img[0].loadFromFile(imgLoc+"\\board.png") or
+        !img[1].loadFromFile(imgLoc+"\\wk.png") or
+        !img[2].loadFromFile(imgLoc+"\\wq.png") or
+        !img[3].loadFromFile(imgLoc+"\\wr.png") or
+        !img[4].loadFromFile(imgLoc+"\\wbi.png") or
+        !img[5].loadFromFile(imgLoc+"\\wkn.png") or
+        !img[6].loadFromFile(imgLoc+"\\wp.png") or
+        !img[7].loadFromFile(imgLoc+"\\bk.png") or
+        !img[8].loadFromFile(imgLoc+"\\bq.png") or
+        !img[9].loadFromFile(imgLoc+"\\br.png") or
+        !img[10].loadFromFile(imgLoc+"\\bbi.png") or
+        !img[11].loadFromFile(imgLoc+"\\bkn.png") or
+        !img[12].loadFromFile(imgLoc+"\\bp.png")){
             printf("Cant load image");
         }
         else{
+            sprite[0].setPosition(offset.x,offset.y);
             sprite[0].setTexture(img[0]);
-            sprite[0].setScale(600/sprite[0].getLocalBounds().width,600/sprite[0].getLocalBounds().height);
+            sprite[0].setScale(boardSize/sprite[0].getLocalBounds().width,boardSize/sprite[0].getLocalBounds().height);
+
         for(int i=1;i<13;i++){
             sprite[i].setTexture(img[i]);
-            sprite[i].setScale(600/(8*sprite[i].getLocalBounds().width),600/(8*sprite[i].getLocalBounds().height));
+            sprite[i].setScale(boardSize/(8*sprite[i].getLocalBounds().width),boardSize/(8*sprite[i].getLocalBounds().height));
         }
         }
         
-        if(!caputreSound.openFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\capture.wav")){
+        if(!caputreSound.openFromFile(imgLoc+"\\capture.wav")){
             printf("cant load sound files");
         }
-        if(!moveSound.openFromFile("C:\\Users\\Lokanadh\\Documents\\vignesh\\learnSFML\\img\\move-self.wav")){
+        if(!moveSound.openFromFile(imgLoc+"\\move-self.wav")){
             printf("cant load sound files");
         }
     }
     
-    
-    void draw_pieces( sf::RenderWindow& window, std::string board_copy){
+    void set_board_size(int newSize){
+        boardSize = newSize;
+        pieceW = boardSize/8;
+        offset.x = (int)(SCREEN_WIDTH-boardSize)/2;
+        sprite[0].setPosition(offset.x,offset.y);
+            sprite[0].setScale(boardSize/sprite[0].getLocalBounds().width,boardSize/sprite[0].getLocalBounds().height);
+        for(int i=1;i<13;i++)
+            sprite[i].setScale(boardSize/(8*sprite[i].getLocalBounds().width),boardSize/(8*sprite[i].getLocalBounds().height));
         
-        window.draw(sprite[0]);
-        for(int j=0;j<8;j++){
-            for(int i=0;i<8;i++){
-            switch(board_copy[j*8+i]){
+    }
+
+    void resetBoard(){
+        board = "rnbqkbnrpppppppp--------------------------------PPPPPPPPRNBQKBNR";
+        currentColor = 'K';
+        board_copy = board;
+    }
+
+    sf::Sprite get_sprite(char piece){
+        switch(piece){
                 case 'K':
-                    sprite[1].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[1]); break;
+                    return sprite[1];
                 case 'Q':
-                    sprite[2].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[2]); break;
+                    return sprite[2];
                 case 'R':
-                    sprite[3].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[3]); break;
+                    return sprite[3];
                 case 'B':
-                    sprite[4].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[4]); break;
+                    return sprite[4];
                 case 'N':
-                    sprite[5].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[5]); break;
+                    return sprite[5];
                 case 'P':
-                    sprite[6].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[6]); break;
+                    return sprite[6];
                 case 'k':
-                    sprite[7].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[7]); break;
+                    return sprite[7];
                 case 'q':
-                    sprite[8].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[8]); break;
+                    return sprite[8];
                 case 'r':
-                    sprite[9].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[9]); break;
+                    return sprite[9];
                 case 'b':
-                    sprite[10].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[10]); break;
+                    return sprite[10];
                 case 'n':
-                    sprite[11].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[11]); break;
+                    return sprite[11];
                 case 'p':
-                    sprite[12].setPosition(pieceW*i,pieceW*j);
-                    window.draw(sprite[12]); break;
-                case '+':
-                    canMoveSquare.setFillColor(sf::Color(255,0,0,125));
-                    canMoveSquare.setPosition(pieceW*i,pieceW*j);
-                    window.draw(canMoveSquare);
-                    //if(isalpha(board[j*8+i]))
-                    break;
+                    return sprite[12];  
                 case '-':
                     break;
                 default:
-                    printf("Invalid string got %c",board_copy[j*8+i]);
+                    printf("Invalid string got %c",piece);
             }
+    }
+
+    void draw_pieces( sf::RenderWindow& window, std::string board_copy){
+        
+        window.draw(sprite[0]);
+        sf::Sprite tmpSprite;
+        for(int j=0;j<8;j++){
+            for(int i=0;i<8;i++){
+                if(board_copy[j*8+i] == '+'){
+                    if(board[j*8+i] != '-'){
+                        tmpSprite = get_sprite(board[j*8+i]);
+                        tmpSprite.setPosition(offset.x+pieceW*i,offset.y+pieceW*j);
+                        window.draw(tmpSprite);
+                    }
+                    canMoveSquare.setFillColor(sf::Color(255,0,0,200));
+                    canMoveSquare.setPosition(offset.x+(pieceW)/2-20+pieceW*i,offset.y+(pieceW)/2-20+pieceW*j);
+                    window.draw(canMoveSquare);
+                    
+                }
+                else if(board_copy[j*8+i] != '-'){
+                    
+                    tmpSprite = get_sprite(board_copy[j*8+i]);
+                    tmpSprite.setPosition(offset.x+pieceW*i,offset.y+pieceW*j);
+                    window.draw(tmpSprite);
+                }
             }
         }
     }
@@ -147,8 +174,8 @@ class Chess{
         for(int n:posb){
             if(isalpha(board[n])){
                 if( !is_black(color)){
-                    if(board[n] == 'k') return true;
-                }else if(board[n] == 'K') return true;
+                    if(board[n] == 'n') return true;
+                }else if(board[n] == 'N') return true;
             }
         }
         return false;
@@ -212,21 +239,28 @@ class Chess{
         currentColor = currentColor=='K'?'k':'K';
     }
     
-    void run(sf::RenderWindow& window){
-        
-        
+    bool run(sf::RenderWindow& window){
+
         sf::Event event;
         if(in_checkmate(currentColor, board)){
-            window.close();
-            printf("Game Over");
+            std::cout<<"Game Over";
+            return true;
         }
+        sf::FloatRect view;
         while(window.pollEvent(event)){
             // "close requested" event: we close the window
             switch(event.type){
                 case sf::Event::Closed :
                     window.close();
+                case sf::Event::Resized:
+                    SCREEN_WIDTH = event.size.width;
+                    SCREEN_HEIGHT = event.size.height;
+                    view = sf::FloatRect(0, 0, event.size.width, event.size.height);
+                    window.setView(sf::View(view));
+                    set_board_size(SCREEN_HEIGHT);
+                    break;
                 case sf::Event::MouseButtonReleased:
-                    sf::Vector2i pos = sf::Mouse::getPosition(window)/ pieceW;
+                    sf::Vector2i pos = (sf::Mouse::getPosition(window)-offset)/ pieceW;
                     
                     if(active > -1){
                         
@@ -251,6 +285,8 @@ class Chess{
         }
         window.clear(sf::Color(255,255,255));
         window.draw(sprite[0]);
+
         draw_pieces(window, board_copy);//"rnbqkbnrpppppppp-------------------------------PPPPPPPPRNBKQKBNR"
+        return false;
     }
 };
