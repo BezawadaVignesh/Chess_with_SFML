@@ -1,5 +1,5 @@
 # Chess_with_SFML
-A two player chess game in cpp useing SFML (https://www.sfml-dev.org/) lib
+A two player chess game in cpp using SFML (https://www.sfml-dev.org/) lib
 # To run
 - install latest version of SFML (2.5.1) 
 - add 'C:\path_to_SFML\SFML-2.5.1\bin' to system environment 
