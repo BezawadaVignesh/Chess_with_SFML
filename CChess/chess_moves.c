@@ -32,18 +32,19 @@ vector_i* pawn_moves(int pos, char* board){
     VECTOR_INIT_EXPORT(v);
     if(board[pos] > 90){
         if((pos+8<64)){
-            if(board[pos+8] == '-')
+            if(board[pos+8] == '-'){
             v->append(v,pos+8);
-            if(pos < 16 and pos > 7) v->append(v, pos+16);/*2 first steps*/
+            if(pos < 16 and pos > 7 and board[pos+16] == '-') v->append(v, pos+16);}/*2 first steps*/
             if(pos%8 != 0 and board[pos+7] != '-' and !is_samecolor(board[pos+7], board[pos])) v->append(v, pos+7);/*kill left*/
             if(pos%8 != 7 and board[pos+9] != '-' and !is_samecolor(board[pos+9], board[pos])) v->append(v, pos+9);/*kill right*/
         } 
     }
     else {
         if(pos-8>0){
-            if(board[pos-8] == '-')
+            if(board[pos-8] == '-'){
                 v->append(v,pos-8);
-            if(pos < 56 and pos > 47) v->append(v, pos-16);
+            if(pos < 56 and pos > 47 and board[pos-16] == '-') v->append(v, pos-16);
+            }
             if(pos%8 != 0 and board[pos-9] != '-' and !is_samecolor(board[pos-9], board[pos])) v->append(v, pos-9);
             if(pos%8 != 7 and board[pos-7] != '-' and !is_samecolor(board[pos-7], board[pos])) v->append(v, pos-7);
         }

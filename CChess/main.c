@@ -1,5 +1,12 @@
 #include "main.h"
 
+struct {
+    int x,y;
+    bool dragging;
+} selected;
+
+
+
 void set_board_size(int new_size){
     c_boardSize = new_size;
     c_pieceW = c_boardSize/8;
@@ -95,6 +102,8 @@ void init(){
         printf("Memory full");
         exit(-1);
     }
+
+    selected.dragging = false;
 }
 
 sfSprite* get_sprite(char piece){
@@ -138,8 +147,12 @@ void draw_pieces(){
     int i,j;
     for(j=0;j<8;j++){
         for(i=0;i<8;i++){
-            tmpvf.x = c_offset.x+c_pieceW*i;
-            tmpvf.y = c_offset.y+c_pieceW*j;
+            if(selected.dragging and selected.x == i and selected.y == j){
+                continue;
+            }else{
+                tmpvf.x = c_offset.x+c_pieceW*i;
+                tmpvf.y = c_offset.y+c_pieceW*j;
+            }
             if(c_boardCopy[j*8+i] == '+'){
                 if(c_board[j*8+i] != '-'){
                     tmpSprite = get_sprite(c_board[j*8+i]);
@@ -159,6 +172,14 @@ void draw_pieces(){
                 sfRenderWindow_drawSprite(g_window, tmpSprite,NULL);
             }
         }
+    }
+    if(selected.dragging){
+        tmpSprite = get_sprite(c_board[selected.y*8+selected.x]);
+        sfVector2i tmpvi = sfMouse_getPositionRenderWindow(g_window);
+        tmpvf.x = tmpvi.x-c_pieceW/2;
+        tmpvf.y = tmpvi.y-c_pieceW/2;
+        sfSprite_setPosition(tmpSprite, tmpvf);
+        sfRenderWindow_drawSprite(g_window, tmpSprite,NULL);
     }
 }
 
@@ -300,6 +321,7 @@ int runGame(sfRenderWindow* g_window){
     sfFloatRect view = {0, 0, g_ScreenWidth, g_ScreenHeight};
     sfVector2i pos;
     sfRenderWindow_clear(g_window, sfColor_fromRGB(25,25,25));
+    
     while(sfRenderWindow_pollEvent(g_window, &g_event)){
         switch(g_event.type){
             case sfEvtClosed:
@@ -319,11 +341,15 @@ int runGame(sfRenderWindow* g_window){
                 if(sfKeyboard_isKeyPressed(sfKeyQ))
                     reset_board();
                     return true;
-            case sfEvtMouseButtonReleased:
+            case sfEvtMouseButtonPressed:
+                selected.dragging = true;
                 pos = sfMouse_getPositionRenderWindow(g_window);
                 pos.x = (pos.x - c_offset.x)/c_pieceW;
                 pos.y = (pos.y - c_offset.y)/c_pieceW;
+                selected.x = pos.x;
+                selected.y = pos.y;
                 if(c_active > -1){
+                    selected.dragging = false;
                     if(v_find(v, pos.y*8+pos.x)){
                         move_piece(c_active, pos.y *8 + pos.x);
                         free(c_boardCopy);
@@ -351,6 +377,27 @@ int runGame(sfRenderWindow* g_window){
                     free(c_boardCopy);
                     c_boardCopy = strdup(c_board);
                 }
+                break;
+            case sfEvtMouseButtonReleased:
+                pos = sfMouse_getPositionRenderWindow(g_window);
+                pos.x = (pos.x - c_offset.x)/c_pieceW;
+                pos.y = (pos.y - c_offset.y)/c_pieceW;
+                selected.dragging = false;
+                
+                if(c_active > -1){
+                    if(v_find(v, pos.y*8+pos.x)){
+                        move_piece(c_active, pos.y *8 + pos.x);
+                        free(c_boardCopy);
+                        c_boardCopy = strdup(c_board);
+                        
+                        if(in_checkmate(c_currentColor, c_board)){
+                            printf("Game Over");
+                            reset_board();
+                            return true;
+                        }
+                        break;
+                    }
+                }
 
                 break;
         }
@@ -376,8 +423,7 @@ int main(){
     sfCircleShape_setFillColor(c, sfColor_fromRGB(0,0,0));
     bool drawCircle = false;
     float radius = 1;
-    //sfCircleShape_setRadius(c,200);
-    // sfCircleShape_setPosition(c, size);
+
     sfFloatRect view = {0, 0, g_ScreenWidth, g_ScreenHeight};
     /* Start the game loop */
     while (sfRenderWindow_isOpen(g_window)){
