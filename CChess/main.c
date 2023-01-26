@@ -299,7 +299,7 @@ void move_piece(int from, int to){
 int runGame(sfRenderWindow* g_window){
     sfFloatRect view = {0, 0, g_ScreenWidth, g_ScreenHeight};
     sfVector2i pos;
-    
+    sfRenderWindow_clear(g_window, sfColor_fromRGB(25,25,25));
     while(sfRenderWindow_pollEvent(g_window, &g_event)){
         switch(g_event.type){
             case sfEvtClosed:
@@ -313,6 +313,12 @@ int runGame(sfRenderWindow* g_window){
                 sfRenderWindow_setView(g_window,sfView_createFromRect(view));
                 set_board_size(g_ScreenHeight);
                 break;
+            case sfEvtKeyPressed:
+                if(sfKeyboard_isKeyPressed(sfKeyEscape))
+                    return true;
+                if(sfKeyboard_isKeyPressed(sfKeyQ))
+                    reset_board();
+                    return true;
             case sfEvtMouseButtonReleased:
                 pos = sfMouse_getPositionRenderWindow(g_window);
                 pos.x = (pos.x - c_offset.x)/c_pieceW;
@@ -359,23 +365,40 @@ int main(){
     init();
     
     sfRectangleShape* button=sfRectangleShape_create();
-    sfVector2f size = {300.0,75.0};
+    sfVector2f size = {300.0,75.0}, tmpvf;
+    sfVector2f buttPos = {(g_ScreenWidth-size.x)/2,(g_ScreenHeight-size.y)/2 };
     sfRectangleShape_setSize(button,size);
     sfVector2i pos;
     sfRectangleShape_setFillColor(button,sfBlue);
     
+    sfRectangleShape_setPosition(button, buttPos);
     sfCircleShape* c = sfCircleShape_create();
-    sfCircleShape_setFillColor(c, sfColor_fromRGBA(255,0,0,200));
-    sfCircleShape_setRadius(c,200);
-    sfCircleShape_setPosition(c, size);
-
+    sfCircleShape_setFillColor(c, sfColor_fromRGB(0,0,0));
+    bool drawCircle = false;
+    float radius = 1;
+    //sfCircleShape_setRadius(c,200);
+    // sfCircleShape_setPosition(c, size);
+    sfFloatRect view = {0, 0, g_ScreenWidth, g_ScreenHeight};
     /* Start the game loop */
     while (sfRenderWindow_isOpen(g_window)){
         /* Clear the screen */
         sfRenderWindow_clear(g_window, sfWhite);
         if(state == HOME){
             sfRenderWindow_drawRectangleShape(g_window,button,NULL);
-            sfRenderWindow_drawCircleShape(g_window, c, NULL);
+            if(drawCircle){
+                if(radius > g_ScreenHeight and radius >g_ScreenWidth) {
+                    
+                    state = PLAYING;
+                    radius = 1;
+                    drawCircle = false;
+                }
+                radius += radius>200?radius*0.07:radius*0.2;
+                tmpvf.x = pos.x-radius;
+                tmpvf.y = pos.y-radius;
+                sfCircleShape_setRadius(c,radius);
+                sfCircleShape_setPosition(c, tmpvf);
+                sfRenderWindow_drawCircleShape(g_window, c, NULL);
+            }
             while (sfRenderWindow_pollEvent(g_window, &g_event)){
                 
                 switch (g_event.type){
@@ -384,8 +407,24 @@ int main(){
                         break;
                     case sfEvtMouseButtonReleased:
                         pos = sfMouse_getPositionRenderWindow(g_window);
-                        printf("%d %d", pos.x,pos.y);
-                        state = PLAYING;
+                        if(pos.x > buttPos.x and pos.x < buttPos.x+size.x and 
+                            pos.y > buttPos.y and pos.y < buttPos.y+size.y){
+                            drawCircle = true;
+                            
+                            //state = PLAYING;
+                        }
+                        break;
+                    case sfEvtResized:
+                        g_ScreenHeight = g_event.size.height;
+                        g_ScreenWidth = g_event.size.width;
+                        view.height = g_ScreenHeight;
+                        view.width = g_ScreenWidth;
+                        sfRenderWindow_setView(g_window,sfView_createFromRect(view));
+                        set_board_size(g_ScreenHeight);
+                        buttPos.x = (g_ScreenWidth-size.x)/2;
+                        buttPos.y = (g_ScreenHeight-size.y)/2;
+                        sfRectangleShape_setPosition(button, buttPos);
+                        break;
                 } 
             }
         }else if(state == PLAYING){
