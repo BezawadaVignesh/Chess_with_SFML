@@ -238,6 +238,46 @@ bool in_check(char color, char* board){
     return false;
 }
 
+char piece_selecter(char peice[]){
+    sfVector2f tmpvf;
+    sfVector2i pos, drawPeice;
+    sfSprite* tmpSprite;
+    int i;
+    drawPeice.x = (g_ScreenWidth/2)-(2*c_pieceW);
+    drawPeice.y = (g_ScreenHeight-c_pieceW)/2;
+    bool selected = false;
+    while(!selected){
+        while (sfRenderWindow_pollEvent(g_window, &g_event)){
+            switch(g_event.type){
+                case sfEvtClosed:
+                    sfRenderWindow_close(g_window);
+                    return 'p';
+                    break;
+                case sfEvtMouseButtonReleased:
+                    pos = sfMouse_getPositionRenderWindow(g_window);
+                    //printf("pos: %d %d %d", pos.x, pos.y, (pos.x-drawPeice.x)/c_pieceW);
+                    if(pos.x > drawPeice.x and pos.x < drawPeice.x + 4* c_pieceW and
+                        pos.y > drawPeice.y and pos.y < drawPeice.y+c_pieceW){
+                        pos.x -= drawPeice.x;
+                        return peice[pos.x/c_pieceW];
+                    }
+                    else return peice[0]=='Q'?'P':'p';
+                    break;
+            }
+        }
+        tmpvf.y = drawPeice.y;
+        draw_pieces();
+        for(i=0;i<4;++i){
+            tmpvf.x = drawPeice.x+i*c_pieceW;
+            tmpSprite = get_sprite(peice[i]);
+            sfSprite_setPosition(tmpSprite, tmpvf);
+            sfRenderWindow_drawSprite(g_window , tmpSprite, NULL);
+        }
+        sfRenderWindow_display(g_window);
+    }
+    
+}
+
 vector_i* get_possible_moves(int pos,char color,char* board){
     VECTOR_INIT_EXPORT(v0);
     VECTOR_INIT_EXPORT(v1);
@@ -287,24 +327,34 @@ vector_i* get_possible_moves(int pos,char color,char* board){
         return v1;
 }
 
-bool in_checkmate(char color, char* board){
+bool in_checkmate(char color, char* board, vector_i* allPieceMoves[]){
     VECTOR_INIT(tmp);
     bool checkmate = true;
     int i=0;
     for(i=0;i<64;i++){
-        c_allPossibleMoves[i]->free(c_allPossibleMoves[i]);
+        allPieceMoves[i]->free(allPieceMoves[i]);
         if(is_samecolor(board[i], color)){
-            c_allPossibleMoves[i] = get_possible_moves(i,color, board);
-            if(c_allPossibleMoves[i]->size(c_allPossibleMoves[i])>0) checkmate = false;
+            allPieceMoves[i] = get_possible_moves(i,color, board);
+            if(allPieceMoves[i]->size(allPieceMoves[i])>0) checkmate = false;
         }
     }
     return checkmate;
 }
 
 void move_piece(int from, int to){
+    
+    /*if(c_board[from] == 'p' and to>55){
+        char peice[] = {'q','r','b','n'};
+        c_board[from] = piece_selecter(peice);
+    }
+    else if(c_board[from] == 'P'and to < 8){
+        char peice[] = {'Q','R','B','N'};
+        c_board[from] = piece_selecter(peice);
+    }*/
     if(isalpha(c_board[to])) {
         sfMusic_play(c_caputreSound);
         sfMusic_setPlayingOffset(c_caputreSound, sfTime_Zero);
+        
     }
     else {
         sfMusic_play(c_moveSound);
@@ -315,6 +365,81 @@ void move_piece(int from, int to){
     c_active = -1;
     c_currentColor = c_currentColor=='K'?'k':'K';
 }
+
+
+int evaluation(char color,  char* board){
+    /* material = 100 * (wp - bp) + 320 * (wn - bn) 
+                + 330 * (wb - bb) + 500 * (wr - br) 
+                + 900 * (wq - bq)
+    */
+   //if(in_checkmate(color, board)) return color=='K'?-9999:9999;
+    int counts[256] = { 0 };
+    int pawnsq=0, knightsq=0, bishopsq=0,rooksq=0, queensq=0, kingsq=0;
+    int i;
+    size_t len = 64;
+    for (i = 0; i < len; i++) {
+        switch(board[i]){
+            case 'p':
+                pawnsq -= pawntable[i];
+                break;
+            case 'P':
+                pawnsq += pawntable[i];
+                break;
+            case 'n':
+                knightsq -= knightstable[i];
+                break;
+            case 'N':
+                knightsq += knightstable[i];
+                break;
+            case 'b':
+                bishopsq -= bishopstable[i];
+                break;
+            case 'B':
+                bishopsq += bishopstable[i];
+                break;
+            case 'r':
+                rooksq -= rookstable[i];
+                break;
+            case 'R':
+                rooksq += rookstable[i];
+                break;
+            case 'q':
+                pawnsq -= queenstable[i];
+                break;
+            case 'Q':
+                pawnsq += queenstable[i];
+                break;
+            case 'k':
+                kingsq -= kingstable[i];
+                break;
+            case 'K':
+                kingsq += kingstable[i];
+                break;
+        }
+        counts[board[i]]++;
+    }
+    int material = 100 * (counts['P'] - counts['p']) + 320 * (counts['N'] - counts['n'])
+                    + 330 * (counts['B'] - counts['b']) + 500 * (counts['R'] - counts['r'])
+                    + 900 * (counts['Q'] - counts['q']);
+    
+    return material + pawnsq + knightsq + bishopsq + rooksq + queensq + kingsq;
+}
+/*
+int find_best(vector_i* possible, int depth, char* board, char color){
+    if(depth<=0) return 0;
+    int best=0, result=0, tmp;
+    for(i=0;i<n;i++){
+        FOR(n, possible[i])
+            board[n] = board[i];
+            board[i] = '-';
+            tmp = evaluation(color, board);
+            if(tmp > best){
+                
+            }
+        }
+    }
+    return 0;
+}*/
 
 
 int runGame(sfRenderWindow* g_window){
@@ -351,11 +476,26 @@ int runGame(sfRenderWindow* g_window){
                 if(c_active > -1){
                     selected.dragging = false;
                     if(v_find(v, pos.y*8+pos.x)){
+                        if(c_board[c_active] == 'p' and pos.y *8 + pos.x>55){
+                            char peice[] = {'q','r','b','n'};
+                            char from = piece_selecter(peice);
+                            if(from != 'p')
+                            c_board[c_active] = from;
+                            else break;
+                        }
+                        else if(c_board[c_active] == 'P'and pos.y *8 + pos.x < 8){
+                            char peice[] = {'Q','R','B','N'};
+                            char from = piece_selecter(peice);
+                            if(from != 'P')
+                            c_board[c_active] = from;
+                            else break;
+                        }
                         move_piece(c_active, pos.y *8 + pos.x);
                         free(c_boardCopy);
                         c_boardCopy = strdup(c_board);
+                        //printf("eval : %d ", evaluation(c_currentColor, c_board));
                         
-                        if(in_checkmate(c_currentColor, c_board)){
+                        if(in_checkmate(c_currentColor, c_board, c_allPossibleMoves)){
                             printf("Game Over");
                             reset_board();
                             return true;
@@ -386,11 +526,25 @@ int runGame(sfRenderWindow* g_window){
                 
                 if(c_active > -1){
                     if(v_find(v, pos.y*8+pos.x)){
+                        if(c_board[c_active] == 'p' and pos.y *8 + pos.x>55){
+                            char peice[] = {'q','r','b','n'};
+                            char from = piece_selecter(peice);
+                            if(from != 'p')
+                            c_board[c_active] = from;
+                            else break;
+                        }
+                        else if(c_board[c_active] == 'P'and pos.y *8 + pos.x < 8){
+                            char peice[] = {'Q','R','B','N'};
+                            char from = piece_selecter(peice);
+                            if(from != 'P')
+                            c_board[c_active] = from;
+                            else break;
+                        }
                         move_piece(c_active, pos.y *8 + pos.x);
                         free(c_boardCopy);
                         c_boardCopy = strdup(c_board);
-                        
-                        if(in_checkmate(c_currentColor, c_board)){
+                        //printf("eval : %d ", evaluation(c_currentColor, c_board));
+                        if(in_checkmate(c_currentColor, c_board, c_allPossibleMoves)){
                             printf("Game Over");
                             reset_board();
                             return true;
@@ -408,17 +562,45 @@ int runGame(sfRenderWindow* g_window){
     return false;
 }
 
+bool is_on(sfVector2i pos, sfText* text){
+    sfVector2f buttPos = sfText_getPosition(text), size;
+    size.x = sfText_getLocalBounds(text).width;
+    size.y =sfText_getLocalBounds(text).height;
+    if(pos.x > buttPos.x and pos.x < buttPos.x+size.x and 
+        pos.y > buttPos.y and pos.y < buttPos.y+size.y){
+        sfText_setCharacterSize(text, 70);
+        return true;
+    }
+    return false;
+}
+
 int main(){
     init();
     
-    sfRectangleShape* button=sfRectangleShape_create();
-    sfVector2f size = {300.0,75.0}, tmpvf;
-    sfVector2f buttPos = {(g_ScreenWidth-size.x)/2,(g_ScreenHeight-size.y)/2 };
-    sfRectangleShape_setSize(button,size);
-    sfVector2i pos;
-    sfRectangleShape_setFillColor(button,sfBlue);
     
-    sfRectangleShape_setPosition(button, buttPos);
+    sfVector2i pos;
+    
+    sfText *playText = sfText_create(), *quitText = sfText_create();
+    
+    sfText_setString(playText,"Play");
+    sfText_setString(quitText,"Quit");
+    sfText_setFont(playText, sfFont_createFromFile("MF.ttf"));
+    sfText_setFillColor(playText, sfBlack);
+    sfText_setCharacterSize(playText, 50);
+    sfText_setFont(quitText, sfFont_createFromFile("MF.ttf"));
+    sfText_setFillColor(quitText, sfBlack);
+    sfText_setCharacterSize(quitText, 50);
+    
+    sfVector2f size, tmpvf;
+    size.x = sfText_getLocalBounds(playText).width;
+    size.y =sfText_getLocalBounds(playText).height;
+    sfVector2f buttPos = {(g_ScreenWidth-size.x)/2,(g_ScreenHeight-size.y)/2 };
+    size.x = sfText_getLocalBounds(quitText).width;
+    size.y =sfText_getLocalBounds(quitText).height;
+    sfVector2f buttPos1 = {(g_ScreenWidth-size.x)/2,(g_ScreenHeight+75+size.y)/2 };
+    sfText_setPosition(playText, buttPos);
+    sfText_setPosition(quitText, buttPos1);
+    
     sfCircleShape* c = sfCircleShape_create();
     sfCircleShape_setFillColor(c, sfColor_fromRGB(0,0,0));
     bool drawCircle = false;
@@ -430,7 +612,9 @@ int main(){
         /* Clear the screen */
         sfRenderWindow_clear(g_window, sfWhite);
         if(state == HOME){
-            sfRenderWindow_drawRectangleShape(g_window,button,NULL);
+            //sfRenderWindow_drawRectangleShape(g_window,button,NULL);
+            sfRenderWindow_drawText(g_window, playText, NULL);
+            sfRenderWindow_drawText(g_window, quitText, NULL);
             if(drawCircle){
                 if(radius > g_ScreenHeight and radius >g_ScreenWidth) {
                     
@@ -453,11 +637,41 @@ int main(){
                         break;
                     case sfEvtMouseButtonReleased:
                         pos = sfMouse_getPositionRenderWindow(g_window);
-                        if(pos.x > buttPos.x and pos.x < buttPos.x+size.x and 
-                            pos.y > buttPos.y and pos.y < buttPos.y+size.y){
+                        if(is_on(pos,playText)){
                             drawCircle = true;
-                            
-                            //state = PLAYING;
+                        }else if(is_on(pos,quitText)){
+                            sfRenderWindow_close(g_window);
+                        }
+                        break;
+                    case sfEvtMouseMoved:
+                        pos = sfMouse_getPositionRenderWindow(g_window);
+                        if(is_on(pos,playText)){
+                            size.x = sfText_getLocalBounds(playText).width;
+                            size.y =sfText_getLocalBounds(playText).height;
+                            buttPos.x = (g_ScreenWidth-size.x)/2;
+                            buttPos.y = (g_ScreenHeight-size.y)/2;
+                            sfText_setPosition(playText, buttPos);
+                        }else if(is_on(pos, quitText)){
+                            size.x = sfText_getLocalBounds(quitText).width;
+                            size.y =sfText_getLocalBounds(quitText).height;
+                            buttPos1.x = (g_ScreenWidth-size.x)/2;
+                            buttPos1.y = (g_ScreenHeight+size.y+75)/2;
+                            sfText_setPosition(quitText, buttPos1);
+                        }else if(sfText_getCharacterSize(playText) != 50){
+                            sfText_setCharacterSize(playText, 50);
+                            size.x = sfText_getLocalBounds(playText).width;
+                            size.y =sfText_getLocalBounds(playText).height;
+                            buttPos.x = (g_ScreenWidth-size.x)/2;
+                            buttPos.y = (g_ScreenHeight-size.y)/2;
+                            sfText_setPosition(playText, buttPos);
+                        }
+                        else if(sfText_getCharacterSize(quitText) != 50){
+                            sfText_setCharacterSize(quitText, 50);
+                            size.x = sfText_getLocalBounds(quitText).width;
+                            size.y =sfText_getLocalBounds(quitText).height;
+                            buttPos1.x = (g_ScreenWidth-size.x)/2;
+                            buttPos1.y = (g_ScreenHeight+size.y+75)/2;
+                            sfText_setPosition(quitText, buttPos1);
                         }
                         break;
                     case sfEvtResized:
@@ -467,9 +681,19 @@ int main(){
                         view.width = g_ScreenWidth;
                         sfRenderWindow_setView(g_window,sfView_createFromRect(view));
                         set_board_size(g_ScreenHeight);
+                        
+                        sfText_setCharacterSize(quitText, 50);
+                        sfText_setCharacterSize(playText, 50);
+                        size.x = sfText_getLocalBounds(playText).width;
+                        size.y =sfText_getLocalBounds(playText).height;
                         buttPos.x = (g_ScreenWidth-size.x)/2;
                         buttPos.y = (g_ScreenHeight-size.y)/2;
-                        sfRectangleShape_setPosition(button, buttPos);
+                        sfText_setPosition(playText, buttPos);
+                        size.x = sfText_getLocalBounds(quitText).width;
+                        size.y =sfText_getLocalBounds(quitText).height;
+                        buttPos1.x = (g_ScreenWidth-size.x)/2;
+                        buttPos1.y = (g_ScreenHeight+size.y+75)/2;
+                        sfText_setPosition(quitText, buttPos1);
                         break;
                 } 
             }
@@ -481,7 +705,8 @@ int main(){
     }
 
     /* Cleanup resources */
-    sfRectangleShape_destroy(button);
+    sfText_destroy(playText);
+    sfText_destroy(quitText);
     finalize();
     return EXIT_SUCCESS;
 }

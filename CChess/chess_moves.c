@@ -1,5 +1,7 @@
 #include "chess_moves.h"
 
+
+
 bool is_samecolor(char ch, char c){
         if(!isalpha(ch) or !isalpha(c)) return false;
         return (ch>90 and c>90) or (ch<91 and c<91);
